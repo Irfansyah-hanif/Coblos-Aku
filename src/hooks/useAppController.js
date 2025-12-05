@@ -5,24 +5,31 @@ import { ApiService } from "../services/apiService";
 export default function useAppController() {
   const [user, setUser] = useState(null);
   const [role, setRole] = useState(null);
-  const [activeTab, setActiveTab] = useState("home");
+  
+  // Persistensi Tab
+  const [activeTab, setActiveTab] = useState(() => {
+      return localStorage.getItem('activeTab') || "home";
+  });
+  
+  useEffect(() => {
+      localStorage.setItem('activeTab', activeTab);
+  }, [activeTab]);
+
   const [candidates, setCandidates] = useState([]);
   const [news, setNews] = useState([]);
   const [api, setApi] = useState(null);
   
-  // State untuk detail page
   const [selectedCandidateId, setSelectedCandidateId] = useState(null); 
   const [selectedNews, setSelectedNews] = useState(null); 
     
   const [userVoteStatus, setUserVoteStatus] = useState({ hasVoted: false });
   const [isLoading, setIsLoading] = useState(true); 
-  // Perbaiki inisialisasi electionEndDate (seharusnya date atau null)
   const [electionEndDate, setElectionEndDate] = useState(null); 
 
-  // --- 1. STATE & HELPER UNTUK MODAL KUSTOM ---
+  // Modal State
   const [modalState, setModalState] = useState({
       isOpen: false,
-      type: 'info', // 'success', 'error', 'confirm'
+      type: 'info',
       title: '',
       message: '',
       isConfirm: false,
@@ -37,32 +44,25 @@ export default function useAppController() {
       setModalState(prev => ({ ...prev, isOpen: false }));
   };
 
-  // Pengganti alert()
   const showAlert = (message, type = 'info', title = 'Pemberitahuan') => {
       showModal({ type, title, message, isConfirm: false });
   };
   
-  // Pengganti confirm()
   const showConfirm = (title, message, onConfirmAction) => {
       showModal({ type: 'confirm', title, message, isConfirm: true, onConfirmAction });
   };
-  // ---------------------------------------------
-  
-  
-  // --- FUNGSI UNTUK MENGAMBIL SEMUA DATA PUBLIK (DIPISAHKAN) ---
+
   const fetchCandidatesAndNews = async () => {
       setIsLoading(true);
       try {
-          // Mengambil Kandidat
           const { data: cData } = await supabase.from('candidates').select('*').order('number', { ascending: true });
           setCandidates(cData || []); 
 
-          // Mengambil Berita
           const { data: nData } = await supabase.from('news').select('*').order('created_at', { ascending: false });
           setNews(nData || []);
           
       } catch (err) {
-          console.error("Load Data Error: Cek RLS dan Koneksi Supabase.", err);
+          console.error("Load Data Error", err);
           setCandidates([]); 
           setNews([]);       
       } finally {
@@ -70,162 +70,164 @@ export default function useAppController() {
       }
   };
 
-
-  // ----------------------------
-  // INIT APP & AUTH LISTENER
-  // ----------------------------
-    useEffect(() => {
-        const initApp = async () => {
-            const session = await supabase.auth.getSession();
-            let currentUserId = null;
-
-            if (session.data.session) {
-                const userData = session.data.session.user;
-                currentUserId = userData.id;
-                setUser(userData);
-                
-                const userRole = userData.user_metadata?.role || 'voter'; 
-                setRole(userRole); 
-                
-                const apiInstance = new ApiService(currentUserId);
-                setApi(apiInstance);
-            } 
-            
-            // --- PENGATURAN TANGGAL AWAL ---
-            const storedEndDate = localStorage.getItem('electionEndDate');
-            
-            if (storedEndDate) {
-                // Gunakan tanggal yang tersimpan di localStorage
-                setElectionEndDate(new Date(storedEndDate));
-            } else {
-                // Jika tidak ada, tetapkan tanggal default (30 hari dari sekarang)
-                const defaultDate = new Date();
-                defaultDate.setDate(defaultDate.getDate() + 30);
-                
-                // Set state dan langsung simpan ke localStorage agar konsisten
-                setElectionEndDate(defaultDate);
-                localStorage.setItem('electionEndDate', defaultDate.toISOString()); 
-            }
-            
-            // Panggil fetch data awal
-            await fetchCandidatesAndNews();
-        };
-
-        initApp();
-        
-        const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
-            if (session) {
-                const userData = session.user;
-                setUser(userData);
-                const userRole = userData.user_metadata?.role || 'voter'; 
-                setRole(userRole);
-                const apiInstance = new ApiService(userData.id);
-                setApi(apiInstance);
-            } else {
-                setUser(null);
-                setRole(null);
-                setApi(null);
-                setActiveTab("home");
-            }
-        });
-
-        return () => {
-            authListener.subscription.unsubscribe();
-        };
-    }, []);
-
-  // ----------------------------
-  // LOAD DATA BERGANTUNG PADA USER/API
-  // ----------------------------
+  // Init App & Auth
   useEffect(() => {
-    
-    // Hanya cek apakah koneksi Supabase sudah diinisiasi
+      const initApp = async () => {
+          const session = await supabase.auth.getSession();
+          
+          if (session.data.session) {
+              const userData = session.data.session.user;
+              setUser(userData);
+              const userRole = userData.user_metadata?.role || 'voter'; 
+              setRole(userRole); 
+              const apiInstance = new ApiService(userData.id);
+              setApi(apiInstance);
+          } 
+          
+          const storedEndDate = localStorage.getItem('electionEndDate');
+          if (storedEndDate) {
+              setElectionEndDate(new Date(storedEndDate));
+          } else {
+              const defaultDate = new Date();
+              defaultDate.setDate(defaultDate.getDate() + 30);
+              setElectionEndDate(defaultDate);
+              localStorage.setItem('electionEndDate', defaultDate.toISOString()); 
+          }
+          
+          await fetchCandidatesAndNews();
+      };
+
+      initApp();
+      
+      const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
+          if (session) {
+              const userData = session.user;
+              setUser(userData);
+              const userRole = userData.user_metadata?.role || 'voter'; 
+              setRole(userRole);
+              const apiInstance = new ApiService(userData.id);
+              setApi(apiInstance);
+          } else {
+              setUser(null);
+              setRole(null);
+              setApi(null);
+              setActiveTab("home");
+          }
+      });
+
+      return () => {
+          authListener.subscription.unsubscribe();
+      };
+  }, []);
+
+  // REALTIME LISTENER (PENTING UNTUK RESET)
+  useEffect(() => {
+    if (!user) return;
+
+    // Mendengarkan perubahan pada tabel votes
+    const channels = supabase.channel('realtime-voting')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'votes', filter: `user_id=eq.${user.id}` },
+        (payload) => {
+          // Jika data dihapus (RESET), ubah status jadi belum memilih
+          if (payload.eventType === 'DELETE') {
+             setUserVoteStatus({ hasVoted: false, candidateId: null });
+             showAlert("Data pemilihan telah di-reset oleh Admin. Anda dapat memilih kembali.", "info", "Reset Pemilihan");
+          } 
+          // Jika data ditambah (VOTE)
+          else if (payload.eventType === 'INSERT') {
+             setUserVoteStatus({ hasVoted: true, candidateId: payload.new.candidate_id });
+          }
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'candidates' },
+        () => {
+           // Update live count jika ada perubahan
+           fetchCandidatesAndNews();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channels);
+    };
+  }, [user]);
+
+  // Load Private Data
+  useEffect(() => {
     if (!supabase) return; 
 
     const fetchPrivateData = async () => {
       try {
-        // Hanya ambil status vote jika user benar-benar terautentikasi (bukan null atau guest)
+        // PERBAIKAN: Typo KZ telah dihapus di sini
         if (user && api && role !== 'guest') {
             const status = await api.getUserVotingStatus();
             setUserVoteStatus(status);
         } else {
-             // Reset status vote jika anonim/guest
             setUserVoteStatus({ hasVoted: false });
         }
       } catch (err) {
-        // Logging error agar mudah didiagnosa jika ada masalah RLS/koneksi
         console.error("Load Private Data Error:", err);
       }
     };
     
-    // Periksa apakah data publik (Candidates & News) sudah dimuat
     if(candidates.length === 0 || news.length === 0) {
         fetchCandidatesAndNews();
     }
     
     fetchPrivateData();
-    // Dependency list dipertahankan agar data refresh saat login/logout
   }, [user, api, role]); 
   
-  // ----------------------------
-  // HANDLERS OTENTIKASI
-  // ----------------------------
-  
+  // HANDLERS
     const handleLogin = async ({ email, password, role: requestedRole }) => {
         setIsLoading(true);
         try {
             const { data, error } = await supabase.auth.signInWithPassword({ email, password });
             if (error) throw error;
             
-            // --- VERIFIKASI PERAN BARU ---
             const session = data.session;
             const actualRole = session?.user.user_metadata?.role || 'voter';
 
             if (actualRole !== requestedRole) {
-                // Peran tidak cocok (misal: Admin login via tombol Voter)
-                
-                // 1. Paksa Logout dari sesi yang salah
                 await supabase.auth.signOut(); 
-                
-                // 2. Tampilkan pesan kesalahan yang lebih jelas
-                const message = `Akses Ditolak. Akun ini terdaftar sebagai ${actualRole.toUpperCase()}. Silakan masuk melalui tombol ${actualRole.toUpperCase()}.`;
-                showAlert(message, 'error', 'Peran Tidak Cocok');
+                showAlert(`Akun ini terdaftar sebagai ${actualRole.toUpperCase()}.`, 'error', 'Peran Tidak Cocok');
                 return false;
             }
-            // --- AKHIR VERIFIKASI PERAN ---
 
-            // Setelah login, panggil fetch ulang agar data kandidat ter-refresh
             await fetchCandidatesAndNews(); 
-            
-            // Login berhasil, navigasi akan ditangani oleh authListener
-            showAlert(`Login Berhasil sebagai ${requestedRole}!`, 'success', 'Selamat Datang');
+            showAlert(`Login Berhasil!`, 'success', 'Selamat Datang');
             return true;
         } catch (error) {
-            console.error("Login Gagal:", error.message);
-            showAlert(`Login Gagal: ${error.message}.`, 'error', 'Error Otentikasi');
+            showAlert(`Login Gagal: ${error.message}`, 'error', 'Error');
             return false;
         } finally {
             setIsLoading(false);
         }
     };
 
-    const handleRegister = async ({ email, password }) => {
+    const handleRegister = async ({ email, password, fullName }) => {
         setIsLoading(true);
         try {
             const { error } = await supabase.auth.signUp({
                 email,
                 password,
-                options: { data: { role: 'voter' } }
+                options: { 
+                    data: { 
+                        role: 'voter',
+                        full_name: fullName 
+                    } 
+                }
             });
 
             if (error) throw error;
             
-            // FIX: Kembalikan true agar LoginPage bisa beralih ke mode Login
-            showAlert("Pendaftaran berhasil! Silakan login menggunakan email dan password Anda.", 'success', 'Pendaftaran Sukses');
+            showAlert("Pendaftaran berhasil! Silakan login.", 'success', 'Sukses');
             return true; 
         } catch (error) {
-            console.error("Pendaftaran Gagal:", error.message);
-            showAlert(`Pendaftaran Gagal: ${error.message}.`, 'error', 'Error Pendaftaran');
+            showAlert(`Pendaftaran Gagal: ${error.message}`, 'error', 'Error');
             return false;
         } finally {
             setIsLoading(false);
@@ -240,94 +242,78 @@ export default function useAppController() {
     const handleLogout = async () => {
         if (user && role !== 'guest') {
             await supabase.auth.signOut();
-            showAlert("Anda telah berhasil keluar.", 'success', 'Keluar');
+            localStorage.setItem('activeTab', 'home'); 
+            setActiveTab('home');
+            showAlert("Berhasil keluar.", 'success', 'Logout');
         } else {
             setRole(null);
+            localStorage.setItem('activeTab', 'home');
             setActiveTab("home");
         }
     };
 
-
-  // ----------------------------
-  // HANDLERS DATA & LOGIKA
-  // ----------------------------
-  
-    // FUNGSI UNTUK MENGATUR TANGGAL BERAKHIR PEMILIHAN
     const handleSetEndDate = (newDate) => {
-        // newDate sudah berupa string ISO dari modal HomePage
         const dateObj = new Date(newDate);
-        
-        // 1. Update State Lokal (Agar CountdownTimer langsung refresh)
         setElectionEndDate(dateObj);
-        
-        // 2. Simpan secara permanen di browser (localStorage)
         localStorage.setItem('electionEndDate', dateObj.toISOString());
-        
-        // 3. Tampilkan notifikasi sukses
-        showAlert(`Batas waktu pemilihan berhasil diatur ke ${dateObj.toLocaleString('id-ID', { dateStyle: 'full', timeStyle: 'short' })}.`, 'success', 'Pengaturan Sukses');
-        
-        // Re-render harusnya otomatis karena state electionEndDate diubah.
+        showAlert(`Waktu diubah.`, 'success', 'Sukses');
     };
     
-    // Logika Vote (Internal)
     const performVote = async (id) => {
         try {
             if (!api) throw new Error("API service not initialized.");
             
+            if (electionEndDate && new Date() > electionEndDate) {
+                throw new Error("Waktu pemilihan sudah habis!");
+            }
+
             await api.castVote(id, role);
+            // Update lokal sementara menunggu realtime
             setUserVoteStatus({ hasVoted: true, candidateId: id });
             
-            // FIX: Panggil fetchCandidatesAndNews() untuk mendapatkan vote_count terbaru
             await fetchCandidatesAndNews(); 
             
             setActiveTab("voting");
             setSelectedCandidateId(null);
-            
-            // --- [MODIFIKASI] Ubah pesan notifikasi di sini ---
-            showAlert("Anda sudah mencoblos", 'success', 'Berhasil');
+            showAlert("Suara Anda telah direkam!", 'success', 'Berhasil');
             
         } catch (err) {
-            console.error("Vote Error:", err);
-            showAlert(`Gagal memberikan suara: ${err.message || 'Error tidak diketahui'}`, 'error', 'Error Vote');
+            showAlert(err.message, 'error', 'Gagal');
         }
     };
 
     const handleVote = (id) => {
         if (role === 'guest') {
-             showAlert("Anda harus login sebagai Pemilih untuk memberikan suara!", 'error', 'Akses Ditolak');
+             showAlert("Silakan login sebagai Pemilih.", 'error', 'Akses Ditolak');
              return;
         }
+        
+        if (electionEndDate && new Date() > electionEndDate) {
+            showAlert("Waktu pemilihan sudah habis. Anda tidak dapat memilih.", 'error', 'Waktu Habis');
+            return;
+        }
+
         showConfirm(
-            "Konfirmasi Voting",
-            "Yakin memilih kandidat ini? Pilihan Anda tidak dapat diubah.",
+            "Konfirmasi",
+            "Yakin memilih kandidat ini? Pilihan tidak dapat diubah.",
             () => performVote(id)
         );
     };
 
     const handleAddCandidate = async (candidateData) => { 
-        if (role !== 'admin') {
-            showAlert("Akses ditolak. Hanya Admin yang dapat menambahkan kandidat.", 'error', 'Akses Ditolak'); 
-            return;
-        }
+        if (role !== 'admin') return;
         
         try {
           let photo_url = null;
-          // Upload ke Storage jika ada file
           if (candidateData.photoFile && api) {
               photo_url = await api.uploadCandidatePhoto(candidateData.photoFile, candidateData.name); 
           }
-          // Default avatar jika tidak ada
-          if (!photo_url) {
-            photo_url = `https://ui-avatars.com/api/?name=${candidateData.name}&background=random`;
-          }
+          if (!photo_url) photo_url = `https://ui-avatars.com/api/?name=${candidateData.name}`;
 
-          if (!api) throw new Error("API service not initialized.");
+          if (!api) throw new Error("API error");
 
-          // --- PERBAIKAN: Pisahkan 'photoFile' agar tidak ikut terkirim ke Database ---
-          // eslint-disable-next-line no-unused-vars
           const { photoFile, ...dataForDatabase } = candidateData;
 
-          // Simpan data bersih ke Database
           await api.addCandidate({
             ...dataForDatabase,
             photo_url: photo_url, 
@@ -335,21 +321,19 @@ export default function useAppController() {
             vote_count: 0,
             vision: candidateData.vision || "-",
             mission: candidateData.mission || "-",
+            position: candidateData.position || "Calon Ketua" 
           });
 
-          await fetchCandidatesAndNews(); // Re-fetch setelah menambah
-          showAlert(`Kandidat ${candidateData.name} berhasil ditambahkan!`, 'success', 'Tambah Kandidat Sukses');
+          await fetchCandidatesAndNews();
+          showAlert(`Kandidat berhasil ditambahkan!`, 'success', 'Sukses');
         } catch (err) {
-          console.error("Add Candidate Error:", err);
-          showAlert("Gagal menambahkan kandidat. Pastikan bucket Supabase Storage sudah dikonfigurasi.", 'error', 'Error API');
+          console.error(err);
+          showAlert("Gagal menambahkan kandidat.", 'error', 'Error');
         }
     };
 
     const handleEditCandidate = async (candidateData) => {
-        if (role !== 'admin') {
-          showAlert("Akses ditolak. Hanya Admin yang dapat mengedit kandidat.", 'error', 'Akses Ditolak'); 
-          return;
-        }
+        if (role !== 'admin') return;
 
         try {
           const { id, photoFile, ...restData } = candidateData;
@@ -358,6 +342,7 @@ export default function useAppController() {
           const dataToUpdate = {
             ...restData,
             number: parseInt(restData.number),
+            position: restData.position || "Calon Ketua"
           };
 
           if (photoFile && api) {
@@ -365,195 +350,111 @@ export default function useAppController() {
             if (photo_url) dataToUpdate.photo_url = photo_url;
           }
           
-          if (!api) throw new Error("API service not initialized.");
-
+          if (!api) throw new Error("API Error");
           await api.updateCandidate(id, dataToUpdate);
 
-          await fetchCandidatesAndNews(); // Re-fetch setelah edit
-          showAlert(`Kandidat ${restData.name} berhasil diperbarui.`, 'success', 'Edit Sukses');
-
+          await fetchCandidatesAndNews();
+          showAlert(`Data berhasil diperbarui.`, 'success', 'Sukses');
         } catch (err) {
-          console.error("Edit Candidate Error:", err);
-          showAlert("Gagal mengedit kandidat.", 'error', 'Error Edit');
+          showAlert("Gagal mengedit kandidat.", 'error', 'Error');
         }
     };
 
     const performDeleteCandidate = async (id) => {
         try {
-          if (!api) throw new Error("API service not initialized.");
+          if (!api) throw new Error("API Error");
           await api.deleteCandidate(id);
-          await fetchCandidatesAndNews(); // Re-fetch setelah hapus
-          showAlert(`Kandidat berhasil dihapus.`, 'success', 'Penghapusan Sukses');
+          await fetchCandidatesAndNews();
+          showAlert(`Kandidat dihapus.`, 'success', 'Sukses');
         } catch (err) {
-          console.error(`[DELETE ERROR]`, err); 
-          showAlert("Gagal menghapus kandidat.", 'error', 'Error Penghapusan');
+          showAlert("Gagal menghapus.", 'error', 'Error');
         }
     };
 
     const handleDeleteCandidate = (id) => {
-        if (role !== 'admin') {
-          showAlert("Akses ditolak. Hanya Admin yang dapat menghapus kandidat.", 'error', 'Akses Ditolak'); 
-          return;
-        }
-        showConfirm(
-            "Hapus Kandidat",
-            "Apakah Anda yakin ingin menghapus kandidat ini?",
-            () => performDeleteCandidate(id)
-        );
+        if (role !== 'admin') return;
+        showConfirm("Hapus Kandidat", "Yakin hapus data ini?", () => performDeleteCandidate(id));
     };
     
-    // --- LOGIKA BERITA (UPDATED: Menerima objek data, bukan prompt) ---
-    
-    // newsData: { title: string, content: string }
     const handleAddNews = async (newsData) => {
-        // Validasi input di sini juga
-        if (!newsData || !newsData.title || !newsData.content) {
-             return showAlert("Data berita tidak lengkap.", 'error', 'Input Kosong');
-        }
-
         try {
-          if (!api) throw new Error("API service not initialized.");
-          
-          // Kirim data ke API
-          await api.addNews({
-            title: newsData.title,
-            content: newsData.content
-          });
-
-          await fetchCandidatesAndNews(); // Re-fetch setelah menambah berita
-          showAlert("Berita baru berhasil ditambahkan!", 'success', 'Sukses');
+          if (!api) throw new Error("API Error");
+          await api.addNews(newsData);
+          await fetchCandidatesAndNews();
+          showAlert("Berita ditambahkan!", 'success', 'Sukses');
         } catch (err) {
-          console.error("Add News Error:", err);
-          showAlert("Gagal menambahkan berita.", 'error', 'Error');
+          showAlert("Gagal menambah berita.", 'error', 'Error');
         }
     };
         
-    // newsData: { id: uuid, title: string, content: string, ... }
     const handleEditNews = async (newsData) => {
-        if (role !== 'admin') {
-            showAlert("Akses ditolak.", 'error', 'Akses Ditolak'); 
-            return;
-        }
-        
-        if (!newsData || !newsData.title || !newsData.content) {
-             return showAlert("Data berita tidak lengkap.", 'error', 'Input Kosong');
-        }
-
+        if (role !== 'admin') return;
         try {
-            if (!api) throw new Error("API service not initialized.");
-            
+            if (!api) throw new Error("API Error");
             await api.updateNews(newsData.id, {
                 title: newsData.title,
                 content: newsData.content
             });
-
-            await fetchCandidatesAndNews(); // Re-fetch data dari server agar sinkron
-            
-            // Update selectedNews jika sedang dilihat
+            await fetchCandidatesAndNews();
             if (selectedNews && selectedNews.id === newsData.id) {
-                setSelectedNews({ ...selectedNews, title: newsData.title, content: newsData.content });
+                setSelectedNews({ ...selectedNews, ...newsData });
             }
-            
-            showAlert(`Berita berhasil diperbarui.`, 'success', 'Sukses');
-
+            showAlert(`Berita diperbarui.`, 'success', 'Sukses');
         } catch (err) {
-            console.error("Edit News Error:", err);
-            showAlert("Gagal mengedit berita.", 'error', 'Error');
+            showAlert("Gagal edit berita.", 'error', 'Error');
         }
     };
 
     const performDeleteNews = async (id) => {
         try {
-            if (!api) throw new Error("API service not initialized.");
+            if (!api) throw new Error("API Error");
             await api.deleteNews(id);
-            await fetchCandidatesAndNews(); // Re-fetch setelah hapus berita
+            await fetchCandidatesAndNews(); 
             if (selectedNews && selectedNews.id === id) setSelectedNews(null);
-            showAlert("Berita berhasil dihapus.", 'success', 'Sukses');
+            showAlert("Berita dihapus.", 'success', 'Sukses');
         } catch (err) {
-            console.error("Delete News Error:", err);
-            showAlert("Gagal menghapus berita.", 'error', 'Error');
+            showAlert("Gagal hapus berita.", 'error', 'Error');
         }
     };
 
     const handleDeleteNews = (id) => {
-        if (role !== 'admin') {
-            showAlert("Akses ditolak.", 'error', 'Akses Ditolak'); 
-            return;
-        }
-        showConfirm(
-            "Hapus Berita",
-            "Apakah Anda yakin ingin menghapus berita ini?",
-            () => performDeleteNews(id)
-        );
+        if (role !== 'admin') return;
+        showConfirm("Hapus Berita", "Yakin hapus?", () => performDeleteNews(id));
     };
 
-    // --- LOGIKA RESET PEMILIHAN (ADMIN) ---
+    // Fungsi Reset dengan konfirmasi dan update UI
     const handleResetElection = () => {
-        if (role !== 'admin') {
-            showAlert("Akses ditolak.", 'error', 'Akses Ditolak');
-            return;
-        }
-
+        if (role !== 'admin') return;
         showConfirm(
             "Reset Hasil Pemilihan",
-            "PERINGATAN KERAS:\n\nTindakan ini akan MENGHAPUS SEMUA SUARA yang telah masuk dan mengembalikan skor semua kandidat menjadi 0.\n\nData yang dihapus tidak dapat dikembalikan. Apakah Anda yakin ingin memulai ulang pemilihan?",
+            "Tindakan ini akan MENGHAPUS SEMUA SUARA dan mengembalikan skor menjadi 0. Pemilih dapat memilih kembali.",
             async () => {
                 try {
-                    if (!api) throw new Error("API service not initialized.");
-                    
+                    if (!api) throw new Error("API Error");
                     await api.resetElection();
                     
-                    // Reset status voting admin (jika admin ikut nyoblos sebelumnya)
+                    // Update lokal admin agar langsung terlihat
                     setUserVoteStatus({ hasVoted: false });
                     
-                    // Refresh data tampilan
                     await fetchCandidatesAndNews();
-                    
-                    showAlert("Pemilihan berhasil di-reset. Semua suara telah dihapus.", 'success', 'Reset Berhasil');
+                    showAlert("Pemilihan berhasil di-reset. Pemilih dapat melakukan voting ulang.", 'success', 'Reset Berhasil');
                 } catch (err) {
-                    console.error("Reset Election Error:", err);
-                    showAlert(`Gagal mereset pemilihan: ${err.message}`, 'error', 'Error');
+                    showAlert(`Gagal reset: ${err.message}`, 'error', 'Error');
                 }
             }
         );
     };
-    
-    // Hapus logika onSnapshot jika ada, karena kita sudah menggunakan fetchCandidatesAndNews()
 
-
-  // ----------------------------
-  // RETURN 
-  // ----------------------------
   return {
-    user,
-    role,
-    activeTab,
-    setActiveTab,
-    candidates,
-    news,
-    userVoteStatus,
-    selectedCandidateId,
-    setSelectedCandidateId,
-    selectedNews,
-    setSelectedNews,
-    isLoading,
-    electionEndDate, 
-    handleLogin, 
-    handleRegister, 
-    handleGuestLogin, 
-    handleLogout,
-    handleVote,
-    handleAddCandidate, 
-    handleEditCandidate, 
-    handleDeleteCandidate, 
-    handleAddNews,
-    handleEditNews, 
-    handleDeleteNews, 
-    handleSetEndDate,
-    handleResetElection, // <-- Ekspor fungsi reset election
-    
-    // EXPOSURE MODAL
-    modalState,
-    closeModal,
+    user, role, activeTab, setActiveTab,
+    candidates, news, userVoteStatus,
+    selectedCandidateId, setSelectedCandidateId,
+    selectedNews, setSelectedNews,
+    isLoading, electionEndDate, 
+    handleLogin, handleRegister, handleGuestLogin, handleLogout,
+    handleVote, handleAddCandidate, handleEditCandidate, handleDeleteCandidate, 
+    handleAddNews, handleEditNews, handleDeleteNews, 
+    handleSetEndDate, handleResetElection, 
+    modalState, closeModal,
   };
 }

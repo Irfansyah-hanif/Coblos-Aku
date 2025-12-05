@@ -1,29 +1,82 @@
-import React from 'react';
-import { User, LogOut } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { User, LogOut, Download } from 'lucide-react';
 
-const ProfilePage = ({ user, role, onLogout }) => (
-  <div className="p-6 animate-fade-in pb-24 md:pb-10">
-    <div className="mb-6 border-l-4 border-amber-500 pl-3">
-       <h2 className="text-2xl font-bold text-slate-900 font-serif">Profil</h2>
-     </div>
-     
-    {/* Kartu User Info */}
-    <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-8 flex flex-col items-center mb-6">
-       <div className="w-24 h-24 bg-slate-900 rounded-full flex items-center justify-center text-amber-500 mb-4 shadow-lg shadow-slate-200">
-         <User size={40}/>
-       </div>
-       <h3 className="font-bold text-xl capitalize text-slate-900 font-serif">{role}</h3>
-       <p className="text-xs text-slate-400 mt-1 font-mono">ID: {user?.id}</p>
+const ProfilePage = ({ user, role, onLogout }) => {
+  // FITUR: Install PWA Logic
+  const [deferredPrompt, setDeferredPrompt] = useState(null);
+
+  useEffect(() => {
+    const handler = (e) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+    };
+    window.addEventListener('beforeinstallprompt', handler);
+    return () => window.removeEventListener('beforeinstallprompt', handler);
+  }, []);
+
+  const handleInstallClick = async () => {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    if (outcome === 'accepted') {
+      setDeferredPrompt(null);
+    }
+  };
+
+  // Ambil nama dari metadata
+  const displayName = user?.user_metadata?.full_name || user?.email?.split('@')[0] || "User";
+
+  return (
+    <div className="p-6 animate-fade-in pb-24 md:pb-10">
+      <div className="mb-6 border-l-4 border-amber-500 pl-3">
+         <h2 className="text-2xl font-bold text-slate-900 font-serif">Profil Pengguna</h2>
+      </div>
+       
+      <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-8 flex flex-col items-center mb-6 relative overflow-hidden">
+         <div className="absolute top-0 w-full h-24 bg-gradient-to-r from-slate-800 to-slate-900"></div>
+         
+         <div className="w-24 h-24 bg-white rounded-full flex items-center justify-center p-1 mb-3 shadow-lg relative z-10">
+             <div className="w-full h-full bg-slate-100 rounded-full flex items-center justify-center text-slate-400">
+                <User size={48}/>
+             </div>
+         </div>
+         
+         {/* FITUR: Menampilkan Nickname/Full Name */}
+         <h3 className="font-bold text-2xl text-slate-900 font-serif text-center">{displayName}</h3>
+         <span className="px-3 py-1 bg-amber-100 text-amber-700 text-xs font-bold rounded-full mt-2 uppercase tracking-wide">
+             {role}
+         </span>
+         
+         <div className="mt-6 w-full space-y-3">
+            <div className="flex justify-between border-b border-slate-100 pb-2">
+                <span className="text-slate-500 text-sm">Email</span>
+                <span className="text-slate-900 text-sm font-medium">{user?.email}</span>
+            </div>
+            <div className="flex justify-between border-b border-slate-100 pb-2">
+                <span className="text-slate-500 text-sm">User ID</span>
+                <span className="text-slate-900 text-sm font-mono">{user?.id?.substring(0, 8)}...</span>
+            </div>
+         </div>
+      </div>
+
+      {/* FITUR: Tombol Install App (Muncul jika browser support PWA) */}
+      {deferredPrompt && (
+          <button 
+            onClick={handleInstallClick} 
+            className="w-full bg-slate-900 text-white py-4 rounded-2xl font-bold flex items-center justify-center gap-2 shadow-lg mb-4 hover:bg-slate-800 transition"
+          >
+            <Download size={18} /> Install Aplikasi
+          </button>
+      )}
+
+      <button 
+        onClick={onLogout} 
+        className="w-full bg-red-50 text-red-600 py-4 rounded-2xl font-bold flex items-center justify-center gap-2 border border-red-100 hover:bg-red-100 transition"
+      >
+        <LogOut size={18} /> Keluar Akun
+      </button>
     </div>
-
-    {/* Logout Button */}
-    <button 
-      onClick={onLogout} 
-      className="w-full bg-red-50 text-red-600 py-4 rounded-2xl font-bold flex items-center justify-center gap-2 border border-red-100 hover:bg-red-100 transition"
-    >
-      <LogOut size={18} /> Keluar
-    </button>
-  </div>
-);
+  );
+};
 
 export default ProfilePage;

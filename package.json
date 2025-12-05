@@ -16,7 +16,8 @@
     "lucide-react": "^0.555.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
-    "react-router-dom": "^7.9.6"
+    "react-router-dom": "^7.9.6",
+    "vite-plugin-pwa": "^0.21.2"
   },
   "devDependencies": {
     "@capacitor/cli": "^7.4.4",
