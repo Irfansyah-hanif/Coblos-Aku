@@ -63,12 +63,13 @@ export default function App() {
     electionEndDate,
     handleSetEndDate,
 
-    // FITUR RESET (BARU)
-    handleResetElection 
+    // FITUR RESET
+    handleResetElection,
+
+    // FITUR PROFILE
+    handleUpdateProfile
   } = useAppController();
 
-  // --- LOGIKA DETAIL KANDIDAT ---
-  
   const currentCandidate = candidates.find(c => c.id === selectedCandidateId);
   
   const handleViewCandidateDetail = (candidateId) => {
@@ -79,8 +80,6 @@ export default function App() {
     setSelectedCandidateId(null);
   };
   
-  // --- LOGIKA DETAIL BERITA ---
-
   const handleViewNewsDetail = (newsItem) => {
     setSelectedNews(newsItem);
   };
@@ -89,13 +88,10 @@ export default function App() {
     setSelectedNews(null);
   };
 
-  // Tentukan apakah kita berada di halaman detail
   const isViewingDetailPage = !!selectedNews || !!selectedCandidateId;
 
-  // Render Utama
   return (
     <>
-      {/* 1. GLOBAL MODAL */}
       <GlobalModal 
           isOpen={modalState.isOpen}
           type={modalState.type}
@@ -106,19 +102,15 @@ export default function App() {
           onConfirmAction={modalState.onConfirmAction}
       />
       
-      {/* 2. KONTEN APLIKASI */}
       {!role ? (
-        // TAMPILAN 1: Halaman Login
         <LoginPage 
           onLogin={handleLogin} 
           onRegister={handleRegister} 
           onGuestLogin={handleGuestLogin}
         />
       ) : (
-        // TAMPILAN 2: Aplikasi Utama
         <div className="min-h-screen bg-slate-50 font-sans">
           
-          {/* Header */}
           {!isViewingDetailPage && ( 
             <HeaderNavigation
               activeTab={activeTab}
@@ -129,10 +121,8 @@ export default function App() {
             />
           )}
 
-          {/* Main Content */}
           <main className="md:pt-20 pb-safe md:pb-10 w-full md:max-w-7xl md:mx-auto p-4 md:p-6">
 
-            {/* Detail Kandidat */}
             {selectedCandidateId && (
                 <CandidateDetailPage 
                   candidate={currentCandidate} 
@@ -144,7 +134,6 @@ export default function App() {
                 />
             )}
             
-            {/* Detail Berita */}
             {!selectedCandidateId && selectedNews && ( 
                 <NewsDetailPage 
                   newsItem={selectedNews} 
@@ -155,7 +144,6 @@ export default function App() {
                 />
             )}
             
-            {/* Tab Utama */}
             {!isViewingDetailPage && ( 
               <>
                 {activeTab === "home" && (
@@ -187,7 +175,6 @@ export default function App() {
                 {activeTab === "voting" && (
                   <VotingPage 
                     candidates={candidates} 
-                    // PERBAIKAN: Mengirim props role dan fungsi reset ke VotingPage
                     role={role}
                     onResetElection={handleResetElection}
                   />
@@ -209,13 +196,14 @@ export default function App() {
                     user={user}
                     role={role}
                     onLogout={handleLogout}
+                    // Pass fungsi update profile
+                    onUpdateProfile={handleUpdateProfile}
                   />
                 )}
               </>
             )}
           </main>
 
-          {/* Bottom Navigation */}
           {!isViewingDetailPage && ( 
             <BottomNavigation 
               activeTab={activeTab} 

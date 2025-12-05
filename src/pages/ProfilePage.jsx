@@ -1,9 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { User, LogOut, Download } from 'lucide-react';
+import { User, LogOut, Download, Edit2, Save, X } from 'lucide-react';
 
-const ProfilePage = ({ user, role, onLogout }) => {
-  // FITUR: Install PWA Logic
+const ProfilePage = ({ user, role, onLogout, onUpdateProfile }) => {
   const [deferredPrompt, setDeferredPrompt] = useState(null);
+  
+  // State untuk mode Edit
+  const [isEditing, setIsEditing] = useState(false);
+  const [editName, setEditName] = useState('');
+
+  // Ambil nama saat ini
+  const displayName = user?.user_metadata?.full_name || user?.email?.split('@')[0] || "User";
 
   useEffect(() => {
     const handler = (e) => {
@@ -23,8 +29,24 @@ const ProfilePage = ({ user, role, onLogout }) => {
     }
   };
 
-  // Ambil nama dari metadata
-  const displayName = user?.user_metadata?.full_name || user?.email?.split('@')[0] || "User";
+  // Mulai Edit
+  const handleStartEdit = () => {
+      setEditName(displayName);
+      setIsEditing(true);
+  };
+
+  // Simpan Edit
+  const handleSaveEdit = () => {
+      if(onUpdateProfile) {
+          onUpdateProfile(editName);
+      }
+      setIsEditing(false);
+  };
+
+  // Batal Edit
+  const handleCancelEdit = () => {
+      setIsEditing(false);
+  };
 
   return (
     <div className="p-6 animate-fade-in pb-24 md:pb-10">
@@ -41,11 +63,35 @@ const ProfilePage = ({ user, role, onLogout }) => {
              </div>
          </div>
          
-         {/* FITUR: Menampilkan Nickname/Full Name */}
-         <h3 className="font-bold text-2xl text-slate-900 font-serif text-center">{displayName}</h3>
-         <span className="px-3 py-1 bg-amber-100 text-amber-700 text-xs font-bold rounded-full mt-2 uppercase tracking-wide">
-             {role}
-         </span>
+         {/* Bagian Nama (Editable) */}
+         <div className="relative z-10 w-full flex flex-col items-center">
+             {isEditing ? (
+                 <div className="flex items-center gap-2 mt-2 w-full max-w-xs">
+                     <input 
+                        type="text" 
+                        value={editName}
+                        onChange={(e) => setEditName(e.target.value)}
+                        className="w-full text-center font-bold text-xl text-slate-900 border-b-2 border-amber-500 focus:outline-none bg-transparent"
+                        autoFocus
+                     />
+                     <button onClick={handleSaveEdit} className="p-2 text-green-600 hover:bg-green-50 rounded-full">
+                         <Save size={20} />
+                     </button>
+                     <button onClick={handleCancelEdit} className="p-2 text-red-500 hover:bg-red-50 rounded-full">
+                         <X size={20} />
+                     </button>
+                 </div>
+             ) : (
+                 <div className="flex items-center gap-2 mt-1 group cursor-pointer" onClick={handleStartEdit} title="Klik untuk mengedit">
+                     <h3 className="font-bold text-2xl text-slate-900 font-serif text-center">{displayName}</h3>
+                     <Edit2 size={16} className="text-slate-300 group-hover:text-amber-500 transition-colors"/>
+                 </div>
+             )}
+             
+             <span className="px-3 py-1 bg-amber-100 text-amber-700 text-xs font-bold rounded-full mt-2 uppercase tracking-wide">
+                 {role}
+             </span>
+         </div>
          
          <div className="mt-6 w-full space-y-3">
             <div className="flex justify-between border-b border-slate-100 pb-2">
@@ -59,7 +105,6 @@ const ProfilePage = ({ user, role, onLogout }) => {
          </div>
       </div>
 
-      {/* FITUR: Tombol Install App (Muncul jika browser support PWA) */}
       {deferredPrompt && (
           <button 
             onClick={handleInstallClick} 

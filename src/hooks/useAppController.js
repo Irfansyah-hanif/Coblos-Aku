@@ -6,7 +6,6 @@ export default function useAppController() {
   const [user, setUser] = useState(null);
   const [role, setRole] = useState(null);
   
-  // Persistensi Tab
   const [activeTab, setActiveTab] = useState(() => {
       return localStorage.getItem('activeTab') || "home";
   });
@@ -26,7 +25,6 @@ export default function useAppController() {
   const [isLoading, setIsLoading] = useState(true); 
   const [electionEndDate, setElectionEndDate] = useState(null); 
 
-  // Modal State
   const [modalState, setModalState] = useState({
       isOpen: false,
       type: 'info',
@@ -70,7 +68,6 @@ export default function useAppController() {
       }
   };
 
-  // Init App & Auth
   useEffect(() => {
       const initApp = async () => {
           const session = await supabase.auth.getSession();
@@ -120,22 +117,18 @@ export default function useAppController() {
       };
   }, []);
 
-  // REALTIME LISTENER (PENTING UNTUK RESET)
   useEffect(() => {
     if (!user) return;
 
-    // Mendengarkan perubahan pada tabel votes
     const channels = supabase.channel('realtime-voting')
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'votes', filter: `user_id=eq.${user.id}` },
         (payload) => {
-          // Jika data dihapus (RESET), ubah status jadi belum memilih
           if (payload.eventType === 'DELETE') {
              setUserVoteStatus({ hasVoted: false, candidateId: null });
              showAlert("Data pemilihan telah di-reset oleh Admin. Anda dapat memilih kembali.", "info", "Reset Pemilihan");
           } 
-          // Jika data ditambah (VOTE)
           else if (payload.eventType === 'INSERT') {
              setUserVoteStatus({ hasVoted: true, candidateId: payload.new.candidate_id });
           }
@@ -145,7 +138,6 @@ export default function useAppController() {
         'postgres_changes',
         { event: '*', schema: 'public', table: 'candidates' },
         () => {
-           // Update live count jika ada perubahan
            fetchCandidatesAndNews();
         }
       )
@@ -156,13 +148,11 @@ export default function useAppController() {
     };
   }, [user]);
 
-  // Load Private Data
   useEffect(() => {
     if (!supabase) return; 
 
     const fetchPrivateData = async () => {
       try {
-        // PERBAIKAN: Typo KZ telah dihapus di sini
         if (user && api && role !== 'guest') {
             const status = await api.getUserVotingStatus();
             setUserVoteStatus(status);
@@ -181,7 +171,6 @@ export default function useAppController() {
     fetchPrivateData();
   }, [user, api, role]); 
   
-  // HANDLERS
     const handleLogin = async ({ email, password, role: requestedRole }) => {
         setIsLoading(true);
         try {
@@ -234,6 +223,33 @@ export default function useAppController() {
         }
     };
 
+    // FITUR: Update Profile (Nickname)
+    const handleUpdateProfile = async (fullName) => {
+        if (!fullName.trim()) {
+            showAlert("Nama tidak boleh kosong.", 'error', 'Validasi Gagal');
+            return;
+        }
+        
+        setIsLoading(true);
+        try {
+            const { data, error } = await supabase.auth.updateUser({
+                data: { full_name: fullName }
+            });
+
+            if (error) throw error;
+
+            // Update local state user agar UI langsung berubah
+            setUser(data.user);
+            
+            showAlert("Profil berhasil diperbarui!", 'success', 'Sukses');
+        } catch (error) {
+            console.error("Update Profile Error:", error);
+            showAlert(`Gagal update profil: ${error.message}`, 'error', 'Error');
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
     const handleGuestLogin = () => {
         setRole('guest');
         setActiveTab("home");
@@ -268,7 +284,6 @@ export default function useAppController() {
             }
 
             await api.castVote(id, role);
-            // Update lokal sementara menunggu realtime
             setUserVoteStatus({ hasVoted: true, candidateId: id });
             
             await fetchCandidatesAndNews(); 
@@ -422,7 +437,6 @@ export default function useAppController() {
         showConfirm("Hapus Berita", "Yakin hapus?", () => performDeleteNews(id));
     };
 
-    // Fungsi Reset dengan konfirmasi dan update UI
     const handleResetElection = () => {
         if (role !== 'admin') return;
         showConfirm(
@@ -433,7 +447,6 @@ export default function useAppController() {
                     if (!api) throw new Error("API Error");
                     await api.resetElection();
                     
-                    // Update lokal admin agar langsung terlihat
                     setUserVoteStatus({ hasVoted: false });
                     
                     await fetchCandidatesAndNews();
@@ -455,6 +468,7 @@ export default function useAppController() {
     handleVote, handleAddCandidate, handleEditCandidate, handleDeleteCandidate, 
     handleAddNews, handleEditNews, handleDeleteNews, 
     handleSetEndDate, handleResetElection, 
+    handleUpdateProfile, // Export fungsi baru
     modalState, closeModal,
   };
 }
