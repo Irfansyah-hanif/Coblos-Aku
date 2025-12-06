@@ -1,17 +1,15 @@
-import React from 'react';
-import { Award, Info, User, ChevronLeft, Calendar, Mail, GraduationCap, CheckCircle, Clock } from 'lucide-react'; 
+import React, { useState } from 'react';
+import { Award, Info, User, ChevronLeft, Calendar, Mail, GraduationCap, CheckCircle, Clock, X, ZoomIn } from 'lucide-react'; 
 
 const CandidateDetailPage = ({ candidate, onVote, role, hasVoted, isLoading, onBack }) => {
+  // State untuk mengontrol modal gambar
+  const [isImageOpen, setIsImageOpen] = useState(false);
+
   if (isLoading) return <div className="p-6">Loading...</div>;
   if (!candidate) return <div className="p-6">Kandidat tidak ditemukan.</div>;
 
-  // --- PERBAIKAN LOGIKA DISINI ---
   const formatMission = (missionString) => {
     if (!missionString) return [];
-    
-    // 1. Split string berdasarkan karakter enter / baris baru ('\n')
-    // 2. Filter baris yang kosong
-    // 3. Hapus nomor manual/simbol yang mungkin diketik user (misal: "1. ", "- ", "* ") agar tidak dobel
     return missionString
       .split('\n') 
       .map(m => m.trim())
@@ -38,14 +36,25 @@ const CandidateDetailPage = ({ candidate, onVote, role, hasVoted, isLoading, onB
             No. {candidate.number}
           </div>
           <div className="flex items-center gap-6">
-            <div className="w-28 h-28 rounded-full border-4 border-amber-500 bg-slate-200 overflow-hidden shadow-xl shrink-0">
+            
+            {/* FOTO KANDIDAT (Dapat diklik untuk Inspect) */}
+            <div 
+                className="relative w-28 h-28 rounded-full border-4 border-amber-500 bg-slate-200 overflow-hidden shadow-xl shrink-0 cursor-pointer group"
+                onClick={() => setIsImageOpen(true)}
+                title="Klik untuk memperbesar"
+            >
               <img 
                 src={candidate.photo_url || "https://placehold.co/150x150"} 
                 alt={candidate.name} 
-                className="w-full h-full object-cover"
+                className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
                 onError={(e) => { e.target.onerror = null; e.target.src = "https://placehold.co/150x150?text=Foto"; }}
               />
+              {/* Overlay Icon saat Hover */}
+              <div className="absolute inset-0 bg-black/30 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                  <ZoomIn size={24} className="text-white drop-shadow-md"/>
+              </div>
             </div>
+
             <div className='text-white'>
               <p className="text-sm font-light text-amber-300">{candidate.position || 'Calon Ketua'}</p>
               <h1 className="text-3xl font-bold leading-tight mt-1">{candidate.name}</h1>
@@ -76,7 +85,7 @@ const CandidateDetailPage = ({ candidate, onVote, role, hasVoted, isLoading, onB
             <p className="text-slate-800 leading-relaxed whitespace-pre-wrap">{candidate.vision}</p>
           </div>
           
-          {/* Misi (Updated Rendering) */}
+          {/* Misi */}
           <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
             <h3 className="font-bold text-slate-900 mb-4 flex items-center gap-2 text-xl uppercase tracking-wider">
                 <Info size={20} className="text-amber-500"/> Misi
@@ -86,7 +95,6 @@ const CandidateDetailPage = ({ candidate, onVote, role, hasVoted, isLoading, onB
                 <ul className="space-y-3 list-none p-0">
                     {missionsList.map((m, i) => (
                         <li key={i} className="flex gap-3 text-base text-slate-700 items-start">
-                            {/* Penomoran Otomatis */}
                             <span className="font-bold text-amber-600 shrink-0 mt-0.5 select-none">{i + 1}.</span>
                             <span className="leading-relaxed">{m}</span>
                         </li>
@@ -126,6 +134,35 @@ const CandidateDetailPage = ({ candidate, onVote, role, hasVoted, isLoading, onB
           )}
         </div>
       </div>
+
+      {/* --- MODAL INSPECT GAMBAR --- */}
+      {isImageOpen && (
+        <div 
+            className="fixed inset-0 z-[100] bg-black/90 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in cursor-zoom-out"
+            onClick={() => setIsImageOpen(false)}
+        >
+            {/* Tombol Close */}
+            <button 
+                onClick={() => setIsImageOpen(false)}
+                className="absolute top-6 right-6 text-white/70 hover:text-white bg-white/10 hover:bg-white/20 p-2 rounded-full transition z-50"
+            >
+                <X size={32} />
+            </button>
+
+            {/* Gambar Full */}
+            <img 
+                src={candidate.photo_url || "https://placehold.co/150x150?text=Foto"} 
+                alt={candidate.name}
+                className="max-w-full max-h-[85vh] rounded-lg shadow-2xl object-contain cursor-default"
+                onClick={(e) => e.stopPropagation()} // Mencegah modal tertutup saat klik gambar
+            />
+            
+            <p className="absolute bottom-6 text-white/80 text-sm font-medium bg-black/50 px-4 py-2 rounded-full">
+                {candidate.name}
+            </p>
+        </div>
+      )}
+
     </div>
   );
 };
