@@ -1,5 +1,10 @@
 🗳️ Coblos Aku – Aplikasi E-Voting Modern
+
+
+
 <img width="338" height="272" alt="image" src="https://github.com/user-attachments/assets/f1899a19-f359-4bc7-a66b-49016df3e6c6" />
+
+
 
 Coblos Aku adalah platform E-Voting berbasis web dan mobile yang dirancang untuk menghadirkan pengalaman memilih yang aman, transparan, dan real-time. Dibangun menggunakan teknologi modern dengan dukungan multi-platform (Web & Android).
 
