@@ -7,7 +7,8 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'masked-icon.svg'],
+      // 👇 PERBAIKAN DI SINI: Tambahkan 'coblosaku.png' agar ikut disimpan oleh sistem PWA
+      includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'masked-icon.svg', 'coblosaku.png'], 
       manifest: {
         name: 'Coblos Aku - E-Voting',
         short_name: 'CoblosAku',
@@ -18,7 +19,7 @@ export default defineConfig({
         orientation: 'portrait',
         icons: [
           {
-            src: '/coblosaku.png', // Menggunakan logo yang diupload
+            src: '/coblosaku.png',
             sizes: '192x192',
             type: 'image/png'
           },
